@@ -1,6 +1,6 @@
-import express from "express";
-import axios from "axios";
-import cheerio from "cheerio";
+const express = require("express");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,29 +19,21 @@ app.get("/api/mediafire", async (req, res) => {
       });
     }
 
-    const f = await fetch(link, {
+    const response = await axios.get(link, {
       headers: {
-        "accept-encoding": "gzip, deflate, br",
-        "user-agent":
+        "User-Agent":
           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
-      },
+        "Accept-Encoding": "gzip, deflate, br"
+      }
     });
 
-    if (!f.ok) {
-      return res.status(500).json({
-        status: false,
-        message: "Gagal mengambil halaman MediaFire",
-      });
-    }
+    const $ = cheerio.load(response.data);
 
-    const html = await f.text();
-    const $ = cheerio.load(html);
-
-    const url = $(".input.popsok").attr("href");
-    if (!url || !/\/\/download\d+\.mediafire\.com\//.test(url)) {
+    const downloadUrl = $(".input.popsok").attr("href");
+    if (!downloadUrl || !/\/\/download\d+\.mediafire\.com\//.test(downloadUrl)) {
       return res.status(404).json({
         status: false,
-        message: "Direct download link tidak ditemukan",
+        message: "Direct download link tidak ditemukan"
       });
     }
 
@@ -50,58 +42,59 @@ app.get("/api/mediafire", async (req, res) => {
     const date = $(".details li:nth-child(2) span").text().trim();
     const type = $(".intro .filetype").text().trim();
 
-    const cont = {
+    const contMap = {
       af: "Africa",
       an: "Antarctica",
       as: "Asia",
       eu: "Europe",
       na: "North America",
       oc: "Oceania",
-      sa: "South America",
+      sa: "South America"
     };
 
-    const $lo = $(".DLExtraInfo-uploadLocation");
+    const locationBox = $(".DLExtraInfo-uploadLocation");
 
-    const continentCode =
-      $lo.find(".DLExtraInfo-uploadLocationRegion")
-        .attr("data-lazyclass")
-        ?.replace("continent-", "");
+    const continentCode = locationBox
+      .find(".DLExtraInfo-uploadLocationRegion")
+      .attr("data-lazyclass")
+      ?.replace("continent-", "");
 
     const location =
-      $lo.find(".DLExtraInfo-sectionDetails p")
+      locationBox
+        .find(".DLExtraInfo-sectionDetails p")
         .text()
         .match(/from (.*?) on/)?.[1] || "Unknown";
 
-    const flag =
-      $lo.find(".flag")
-        .attr("data-lazyclass")
-        ?.replace("flag-", "");
+    const flag = locationBox
+      .find(".flag")
+      .attr("data-lazyclass")
+      ?.replace("flag-", "");
 
-    return res.json({
+    res.json({
       status: true,
       result: {
         name,
         size,
         date,
         type,
-        continent: cont[continentCode] || "Unknown",
+        continent: contMap[continentCode] || "Unknown",
         location,
         flag,
-        download_url: url,
-      },
+        download_url: downloadUrl
+      }
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({
       status: false,
       message: "Server error",
-      error: err.message,
+      error: err.message
     });
   }
 });
 
 /**
- * Optional: Direct download proxy
+ * Optional: Proxy Download
  * GET /api/mediafire/download?url=
  */
 app.get("/api/mediafire/download", async (req, res) => {
@@ -109,9 +102,7 @@ app.get("/api/mediafire/download", async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).send("URL required");
 
-    const response = await axios.get(url, {
-      responseType: "stream",
-    });
+    const response = await axios.get(url, { responseType: "stream" });
 
     res.setHeader(
       "Content-Disposition",
@@ -123,11 +114,11 @@ app.get("/api/mediafire/download", async (req, res) => {
     );
 
     response.data.pipe(res);
-  } catch (e) {
+  } catch (err) {
     res.status(500).send("Download failed");
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 MediaFire API running on http://localhost:${PORT}`);
+  console.log(`🚀 MediaFire API running at http://localhost:${PORT}`);
 });
