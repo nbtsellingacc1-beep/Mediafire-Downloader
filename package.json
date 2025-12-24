@@ -2,7 +2,7 @@
   "name": "mediafire-api",
   "version": "1.0.0",
   "description": "MediaFire Downloader API using Express",
-  "type": "module",
+  "type": "commonjs",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
